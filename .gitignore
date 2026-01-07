@@ -1,0 +1,51 @@
+# Environment variables (NEVER commit these!)
+.env
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MLflow
+mlruns/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# Model files
+*.pkl
+*.joblib
+*.h5
+models/
+
+# Data (if you store locally)
+data/
+*.csv
+*.parquet

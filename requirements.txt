@@ -1,0 +1,52 @@
+# Phase 1: Data Ingestion
+websockets==12.0
+upstash-redis==0.15.0
+feedparser==6.0.11
+python-dotenv==1.0.0
+
+# Async support
+aiohttp==3.9.1
+
+# Utilities
+pydantic==2.5.3
+python-dateutil==2.8.2
+
+# Logging
+structlog==24.1.0
+
+# Phase 2: Feature Engineering (will be used later)
+pandas==2.1.4
+numpy==1.26.2
+ta==0.11.0  # Technical analysis library
+
+# Phase 3: NLP for sentiment (will be used later)
+textblob==0.17.1
+transformers==4.36.2
+torch==2.1.2
+
+# Phase 4: Machine Learning (will be used later)
+lightgbm==4.2.0
+river==0.21.0
+scikit-learn==1.3.2
+
+# Phase 5: Database (will be used later)
+supabase==2.3.0
+psycopg2-binary==2.9.9
+
+# Phase 6: API Serving (will be used later)
+fastapi==0.108.0
+uvicorn[standard]==0.25.0
+
+# Phase 7: Dashboard & Monitoring (will be used later)
+streamlit==1.29.0
+plotly==5.18.0
+evidently==0.4.11
+
+# Phase 8: Experiment Tracking (will be used later)
+mlflow==2.9.2
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.23.2
+black==23.12.1
+ruff==0.1.9
