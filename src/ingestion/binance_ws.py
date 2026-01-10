@@ -39,7 +39,7 @@ shutdown_flag = False
 # Statistics for monitoring
 stats = {
     "messages_received": 0,
-    "messages_stored": 0,
+    "messages_pushed": 0,
     "start_time": time.time(),
     "errors": 0
 }
@@ -80,4 +80,27 @@ def parse_binance_trade_message(message: str) -> Optional[dict]:
         return cleaned_data
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         print(f"❌ Error parsing message: {e}")
+        stats["errors"] += 1
         return None
+    
+    
+def format_timestamp(ms: int) -> str:
+    """Convert milliseconds timestamp to human-readable format."""
+    return datetime.fromtimestamp(ms / 1000).strftime('%Y-%m-%d %H:%M:%S')
+
+
+def print_statistics():
+    """Print current statistics."""
+    elapsed = time.time() - stats["start_time"]
+    rate = stats["messages_received"] / elapsed if elapsed > 0 else 0
+    print("\n" + "=" * 40)
+    print("CURRENT STATISTICS")
+    print("=" * 40)
+    print(f"Messages Received: {stats['messages_received']}")
+    print(f"Messages Pushed to Redis: {stats['messages_pushed']}")
+    print(f"Errors: {stats['errors']}")
+    print(f"Elapsed Time: {elapsed:.2f} seconds")
+    print(f"Receive Rate: {rate:.2f} messages/second")
+    print("=" * 40 + "\n")
+    
+    
