@@ -103,4 +103,105 @@ def print_statistics():
     print(f"Receive Rate: {rate:.2f} messages/second")
     print("=" * 40 + "\n")
     
+
+
+# SIGNAL HANDLER FOR GRACEFUL SHUTDOWN
+
+def signal_handler(sig, frame):
+    global shutdown_flag
+    print("\n⚠️  Shutdown signal received. Cleaning up...")
+    shutdown_flag = True
     
+signal.signal(signal.SIGINT, signal_handler)
+
+
+# MAIN WEBSOCKET LOGIC
+
+async def consume_binance_streams(redis_client):
+    """
+    Connect to Binance Websocket and consume the price stream
+    
+    This is the main async function that:
+    1. Connects to Binance Websocket
+    2. Listens for messages
+    3. Parses each message
+    4. Pushes to Redis
+    5. Handles errors and reconnects
+
+    Args:
+        redis_client: RedisClient instance for pushing data
+    """
+    
+    
+    reconnect_attempts = 0
+    
+    while not shutdown_flag and reconnect_attempts < MAX_RECONNECT_ATTEMPTS:
+        try:
+            print(f"\n Connecting to Binance WebSocket at {BINANCE_WS_URL}...")
+            
+            # Connect to WebSocket
+            # This is an async context manager
+            async with websockets.connect(BINANCE_WS_URL) as websocket:
+                print("Connected to Binance WebSocket!")
+                print(f"Pushing data to Redis list: '{REDIS_LIST_NAME}'")
+                print(f"Logging every {LOG_EVERY_N_MESSAGES} messages\n")
+                
+                reconnect_attempts = 0  # Reset on successful connection
+                
+                # Main message loop
+                while not shutdown_flag:
+                    try:
+                        message = await websocket.recv()
+                        stats["messages_received"] += 1
+                        data = parse_binance_trade_message(message)
+                        
+                        if data:
+                            # Push to Redis
+                            success = redis_client.push_to_list(REDIS_LIST_NAME, data)
+                            if success:
+                                stats["messages_pushed"] += 1
+                                
+                                # Log periodically
+                                if stats["messages_received"] % LOG_EVERY_N_MESSAGES == 0:
+                                    price = data.get("price")
+                                    timestamp = format_timestamp(data.get("timestamp"))
+                                    volume = data.get("volume")
+                                    print(f"[{timestamp}] Message #{stats['messages_received']}: Price=${price} Volume={volume}")
+                                    
+                    except ConnectionClosed as e:
+                        print(f"❌ Connection closed: {e}")
+                        break
+                    
+                    except WebSocketException as e:
+                        print(f"❌ WebSocket error: {e}")
+                        stats["errors"] += 1
+                        break
+                    
+                    except Exception as e:
+                        print(f"❌ Unexpected error: {e}")
+                        stats["errors"] += 1
+        
+        except ConnectionClosed:
+            if not shutdown_flag:
+                print("❌ Connection closed unexpectedly. Will attempt to reconnect...")
+                reconnect_attempts += 1
+                print(f"Reconnection attempt {reconnect_attempts}/{MAX_RECONNECT_ATTEMPTS} in {RECONNECT_DELAY_SECONDS} seconds...")
+                await asyncio.sleep(RECONNECT_DELAY_SECONDS)
+                
+        except WebSocketException as e:
+            print(f"❌ WebSocket connection error: {e}")
+            reconnect_attempts += 1
+            print(f"Reconnection attempt {reconnect_attempts}/{MAX_RECONNECT_ATTEMPTS} in {RECONNECT_DELAY_SECONDS} seconds...")
+            await asyncio.sleep(RECONNECT_DELAY_SECONDS)
+            
+        except Exception as e:
+            print(f"❌ Unexpected error during connection: {e}")
+            stats["errors"] += 1
+            if not shutdown_flag:
+                reconnect_attempts += 1
+                print(f"Reconnection attempt {reconnect_attempts}/{MAX_RECONNECT_ATTEMPTS} in {RECONNECT_DELAY_SECONDS} seconds...")
+                await asyncio.sleep(RECONNECT_DELAY_SECONDS)
+                
+    if reconnect_attempts >= MAX_RECONNECT_ATTEMPTS:
+        print("❌ Max reconnection attempts reached. Exiting...")
+    print_statistics()    
