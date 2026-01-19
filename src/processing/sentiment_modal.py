@@ -58,7 +58,7 @@ LABEL_MAP = {
 @app.cls(
     image=image,
     gpu="T4",  # NVIDIA T4 - cheapest GPU option, plenty fast for inference
-    container_idle_timeout=300,  # Keep warm for 5 minutes (reduces cold starts)
+    scaledown_window=300,  # Keep warm for 5 minutes (reduces cold starts)
 )
 class FinBERTModel:
     """
@@ -92,21 +92,12 @@ class FinBERTModel:
 
         print("FinBERT model loaded successfully on GPU!")
 
-    @modal.method()
-    def analyze_batch(self, texts: list[str]) -> list[dict]:
+    def _analyze_batch_impl(self, texts: list[str]) -> list[dict]:
         """
-        Analyze sentiment for a batch of texts.
+        Internal implementation for batch sentiment analysis.
 
-        Batch processing is more efficient than single texts because:
-        - Reduces API call overhead
-        - Better GPU utilization
-        - Amortizes cold start cost
-
-        Args:
-            texts: List of texts to analyze
-
-        Returns:
-            List of dicts with score, confidence, label for each text
+        This is separated from the Modal method so it can be called
+        internally without Modal's function wrapping.
         """
         import torch
         import numpy as np
@@ -168,6 +159,24 @@ class FinBERTModel:
         return results
 
     @modal.method()
+    def analyze_batch(self, texts: list[str]) -> list[dict]:
+        """
+        Analyze sentiment for a batch of texts.
+
+        Batch processing is more efficient than single texts because:
+        - Reduces API call overhead
+        - Better GPU utilization
+        - Amortizes cold start cost
+
+        Args:
+            texts: List of texts to analyze
+
+        Returns:
+            List of dicts with score, confidence, label for each text
+        """
+        return self._analyze_batch_impl(texts)
+
+    @modal.method()
     def analyze_single(self, text: str) -> dict:
         """
         Analyze sentiment for a single text.
@@ -180,7 +189,8 @@ class FinBERTModel:
         Returns:
             Dict with score, confidence, label
         """
-        results = self.analyze_batch([text])
+        # Call the batch logic directly (not the Modal method)
+        results = self._analyze_batch_impl([text])
         return results[0] if results else {"score": 0.0, "confidence": 0.0, "label": "neutral"}
 
 

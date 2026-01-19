@@ -330,23 +330,18 @@ def _check_modal_available() -> bool:
 
     try:
         import modal
-        # Check if we can look up the deployed function
-        # This will fail if not authenticated or app not deployed
+        # Check if modal package is installed
         _modal_available = True
-        logger.info("Modal is available")
+        logger.info("Modal package is available")
         return True
     except ImportError:
         logger.info("Modal not installed, using local inference")
         _modal_available = False
         return False
-    except Exception as e:
-        logger.warning(f"Modal check failed: {e}, using local inference")
-        _modal_available = False
-        return False
 
 
 def _get_modal_model():
-    """Get the Modal FinBERT model reference."""
+    """Get the Modal FinBERT model instance."""
     global _modal_model
 
     if _modal_model is not None:
@@ -354,7 +349,10 @@ def _get_modal_model():
 
     try:
         import modal
-        _modal_model = modal.Cls.lookup("finbert-sentiment", "FinBERTModel")
+        # Use the new Modal API: Cls.from_name instead of Cls.lookup
+        model_cls = modal.Cls.from_name("finbert-sentiment", "FinBERTModel")
+        _modal_model = model_cls()
+        logger.info("Modal model instance created")
         return _modal_model
     except Exception as e:
         logger.warning(f"Failed to get Modal model: {e}")
@@ -374,11 +372,10 @@ def analyze_sentiment_batch_modal(texts: List[str]) -> List[Dict[str, Any]]:
     Raises:
         Exception if Modal is not available
     """
-    model_cls = _get_modal_model()
-    if model_cls is None:
+    model = _get_modal_model()
+    if model is None:
         raise RuntimeError("Modal model not available")
 
-    model = model_cls()
     return model.analyze_batch.remote(texts)
 
 
@@ -483,9 +480,18 @@ def analyze_sentiment_batch(texts: List[str], use_modal: bool = True) -> List[Di
 # ============================================================================
 
 if __name__ == "__main__":
-    print("\n" + "="*60)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Test FinBERT sentiment analysis")
+    parser.add_argument("--local", action="store_true", help="Force local inference (no Modal)")
+    args = parser.parse_args()
+
+    use_modal = not args.local
+
+    print("\n" + "=" * 60)
     print("FINBERT SENTIMENT ANALYSIS TEST")
-    print("="*60 + "\n")
+    print(f"Mode: {'Local (CPU)' if args.local else 'Modal (GPU) with local fallback'}")
+    print("=" * 60 + "\n")
 
     # Test texts with expected sentiments
     test_texts = [
@@ -499,8 +505,10 @@ if __name__ == "__main__":
 
     print("Loading model (first run may download ~500MB)...\n")
 
-    for text, expected in test_texts:
-        result = analyze_sentiment(text)
+    # Test single analysis
+    print("--- Single Analysis ---\n")
+    for text, expected in test_texts[:2]:
+        result = analyze_sentiment(text, use_modal=use_modal)
         status = "OK" if result["label"] == expected else "MISMATCH"
 
         print(f"Text: \"{text}\"")
@@ -509,6 +517,22 @@ if __name__ == "__main__":
         print(f"  Label: {result['label']} (expected: {expected}) [{status}]")
         print()
 
-    print("="*60)
+    # Test batch analysis
+    print("--- Batch Analysis ---\n")
+    texts_only = [t[0] for t in test_texts]
+    expected_labels = [t[1] for t in test_texts]
+
+    results = analyze_sentiment_batch(texts_only, use_modal=use_modal)
+
+    for text, result, expected in zip(texts_only, results, expected_labels):
+        status = "OK" if result["label"] == expected else "MISMATCH"
+
+        print(f"Text: \"{text}\"")
+        print(f"  Score: {result['score']:+.3f}")
+        print(f"  Confidence: {result['confidence']:.3f}")
+        print(f"  Label: {result['label']} (expected: {expected}) [{status}]")
+        print()
+
+    print("=" * 60)
     print("Test complete!")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")

@@ -23,6 +23,7 @@ ta==0.11.0  # Technical analysis library
 textblob==0.17.1
 transformers==4.36.2
 torch==2.1.2
+modal==0.66.0  # Serverless GPU inference for FinBERT
 
 # Phase 4: Machine Learning (will be used later)
 lightgbm==4.2.0
