@@ -34,7 +34,14 @@ from src.storage.redis_client import get_redis_client
 # Binance WebSocket endpoint
 # Format: wss://stream.binance.com:9443/ws/{symbol}@{stream_type}
 # We're using @trade which gives us every trade that happens
-BINANCE_WS_URL = "wss://stream.binance.com:9443/ws/btcusdt@trade"
+#
+# NOTE: Binance.com blocks US IPs (HTTP 451). Use Binance.US for US-based users.
+# Set BINANCE_US=1 environment variable to use Binance.US endpoint.
+import os
+if os.getenv("BINANCE_US", "").lower() in ("1", "true", "yes"):
+    BINANCE_WS_URL = "wss://stream.binance.us:9443/ws/btcusdt@trade"
+else:
+    BINANCE_WS_URL = "wss://stream.binance.com:9443/ws/btcusdt@trade"
 
 # Redis list name where we'll store the data
 REDIS_LIST_NAME = "raw:prices"
